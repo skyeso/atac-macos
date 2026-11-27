@@ -87,10 +87,15 @@ final class SettingsMenuHandler: NSObject {
 
         // Power / polling mode submenu
         let pollSubmenu = NSMenu(title: "Güç ve Kontrol Sıklığı")
+        let pollInfo = NSMenuItem(title: "Yeni kopyaları ne sıklıkla kontrol edeceğini belirler", action: nil, keyEquivalent: "")
+        pollInfo.isEnabled = false
+        pollSubmenu.addItem(pollInfo)
+        pollSubmenu.addItem(.separator())
+
         let pollOptions: [(Int, String)] = [
-            (300, "Hızlı (0.3 sn)"),
+            (300, "Hızlı — Anında Yakala (0.3 sn)"),
             (600, "Dengeli — Önerilen (0.6 sn)"),
-            (1200, "Ultra Tasarruf (1.2 sn)")
+            (1200, "Ultra Pil Tasarrufu (1.2 sn)")
         ]
         for (ms, label) in pollOptions {
             let item = NSMenuItem(title: label, action: #selector(selectPollInterval(_:)), keyEquivalent: "")
@@ -105,6 +110,11 @@ final class SettingsMenuHandler: NSObject {
 
         // Global shortcut submenu
         let hotKeySubmenu = NSMenu(title: "Kısayol Tuşu")
+        let hotKeyInfo = NSMenuItem(title: "Fareye dokunmadan her yerden Ataç penceresini açar", action: nil, keyEquivalent: "")
+        hotKeyInfo.isEnabled = false
+        hotKeySubmenu.addItem(hotKeyInfo)
+        hotKeySubmenu.addItem(.separator())
+
         for preset in HotKeyPreset.allCases {
             let item = NSMenuItem(title: preset.displayTitle, action: #selector(selectHotKey(_:)), keyEquivalent: "")
             item.target = self

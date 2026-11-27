@@ -2,6 +2,8 @@ import AppKit
 import AtacCore
 
 public final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let showPanelNotification = Notification.Name("com.eso.atac.showPanel")
+
     private var statusItem: NSStatusItem!
     private var store: HistoryStore!
     private var monitor: ClipboardMonitor!
@@ -9,6 +11,7 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
 
     public func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        setupEditMainMenu()
 
         store = HistoryStore()
         monitor = ClipboardMonitor(store: store, settings: .shared)
@@ -23,14 +26,60 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         setupStatusBarItem()
         setupCallbacks()
 
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(handleExternalOpenRequest),
+            name: Self.showPanelNotification,
+            object: nil
+        )
+
         HotKeyManager.shared.apply(preset: AppSettings.shared.hotKeyPreset)
         monitor.start()
     }
 
+    public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // Launching Ataç from Spotlight or /Applications while already running opens the clipboard popup
+        panelController?.open(anchorButton: statusItem?.button)
+        return true
+    }
+
     public func applicationWillTerminate(_ notification: Notification) {
+        DistributedNotificationCenter.default().removeObserver(self)
         monitor?.stop()
         HotKeyManager.shared.unregister()
         store?.flushToDiskSynchronously()
+    }
+
+    @objc private func handleExternalOpenRequest() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.panelController?.open(anchorButton: self.statusItem?.button)
+        }
+    }
+
+    private func setupEditMainMenu() {
+        // Enables Cmd+A / Cmd+V / Cmd+X / Cmd+Z in the search field and Cmd+Q when active
+        let mainMenu = NSMenu()
+
+        let appItem = NSMenuItem()
+        mainMenu.addItem(appItem)
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Ataç'tan Çık", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+
+        let editItem = NSMenuItem()
+        mainMenu.addItem(editItem)
+        let editMenu = NSMenu(title: "Düzen")
+        editMenu.addItem(withTitle: "Geri Al", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "Yinele", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "Kes", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Kopyala", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Yapıştır", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Tümünü Seç", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = editMenu
+
+        NSApp.mainMenu = mainMenu
     }
 
     private func setupStatusBarItem() {

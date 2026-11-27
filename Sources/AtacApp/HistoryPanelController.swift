@@ -367,6 +367,7 @@ private final class RoundedSelectionRowView: NSTableRowView {
 private final class HistoryCellView: NSTableCellView {
     static let identifier = NSUserInterfaceItemIdentifier("HistoryCell")
 
+    private let pinIconView = NSImageView()
     private let kindIconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let shortcutLabel = NSTextField(labelWithString: "")
@@ -375,6 +376,13 @@ private final class HistoryCellView: NSTableCellView {
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
+
+        pinIconView.imageScaling = .scaleProportionallyDown
+        if let pinImg = NSImage(systemSymbolName: "pin.fill", accessibilityDescription: "Sabitlendi") {
+            let pinCfg = NSImage.SymbolConfiguration(pointSize: 11, weight: .semibold)
+            pinIconView.image = pinImg.withSymbolConfiguration(pinCfg)
+        }
+        pinIconView.isHidden = true
 
         kindIconView.imageScaling = .scaleProportionallyDown
 
@@ -391,6 +399,7 @@ private final class HistoryCellView: NSTableCellView {
         shortcutLabel.isBezeled = false
         shortcutLabel.isEditable = false
 
+        addSubview(pinIconView)
         addSubview(kindIconView)
         addSubview(titleLabel)
         addSubview(shortcutLabel)
@@ -402,22 +411,20 @@ private final class HistoryCellView: NSTableCellView {
 
     func configure(item: ClipboardItem, index: Int) {
         isPinnedItem = item.isPinned
+        pinIconView.isHidden = !item.isPinned
         titleLabel.stringValue = item.preview
 
+        // Always display the item's true content type icon even when pinned
         let symbolName: String
-        if item.isPinned {
-            symbolName = "pin.fill"
-        } else {
-            switch item.kind {
-            case .text: symbolName = "text.alignleft"
-            case .url: symbolName = "link"
-            case .file: symbolName = "doc"
-            case .image: symbolName = "photo"
-            }
+        switch item.kind {
+        case .text: symbolName = "text.alignleft"
+        case .url: symbolName = "link"
+        case .file: symbolName = "doc"
+        case .image: symbolName = "photo"
         }
 
         if let img = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) {
-            let config = NSImage.SymbolConfiguration(pointSize: 12, weight: item.isPinned ? .semibold : .regular)
+            let config = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
             kindIconView.image = img.withSymbolConfiguration(config)
         }
 
@@ -444,10 +451,12 @@ private final class HistoryCellView: NSTableCellView {
             titleLabel.textColor = .alternateSelectedControlTextColor
             shortcutLabel.textColor = .alternateSelectedControlTextColor.withAlphaComponent(0.85)
             kindIconView.contentTintColor = .alternateSelectedControlTextColor
+            pinIconView.contentTintColor = .alternateSelectedControlTextColor
         } else {
             titleLabel.textColor = .labelColor
             shortcutLabel.textColor = .tertiaryLabelColor
-            kindIconView.contentTintColor = isPinnedItem ? .systemOrange : .secondaryLabelColor
+            kindIconView.contentTintColor = .secondaryLabelColor
+            pinIconView.contentTintColor = .systemOrange
         }
     }
 
@@ -457,11 +466,23 @@ private final class HistoryCellView: NSTableCellView {
         let w = bounds.width
 
         let iconSize: CGFloat = 15
+        let pinSize: CGFloat = 12.5
         let horizontalPad: CGFloat = 16
         let badgeWidth: CGFloat = shortcutLabel.isHidden ? 0 : 28
 
+        var currentX = horizontalPad
+        if isPinnedItem {
+            pinIconView.frame = NSRect(
+                x: currentX,
+                y: floor((h - pinSize) * 0.5),
+                width: pinSize,
+                height: pinSize
+            )
+            currentX += pinSize + 5
+        }
+
         kindIconView.frame = NSRect(
-            x: horizontalPad,
+            x: currentX,
             y: floor((h - iconSize) * 0.5),
             width: iconSize,
             height: iconSize
@@ -476,7 +497,7 @@ private final class HistoryCellView: NSTableCellView {
             )
         }
 
-        let titleX = horizontalPad + iconSize + 7
+        let titleX = currentX + iconSize + 7
         let rightReserved = horizontalPad + (badgeWidth > 0 ? badgeWidth + 8 : 0)
         let titleMaxW = max(40, w - titleX - rightReserved)
         titleLabel.frame = NSRect(
