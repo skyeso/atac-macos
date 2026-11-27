@@ -34,7 +34,19 @@ public final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         HotKeyManager.shared.apply(preset: AppSettings.shared.hotKeyPreset)
+        ensureLoginItemRegisteredFromApplications()
         monitor.start()
+    }
+
+    private func ensureLoginItemRegisteredFromApplications() {
+        // Only auto-register in Login Items when running from /Applications/Ataç.app
+        // so macOS System Settings -> Login Items always displays the native Ataç app icon.
+        guard Bundle.main.bundlePath == "/Applications/Ataç.app" else { return }
+        let initKey = "com.eso.atac.loginItemInitialized"
+        if UserDefaults.standard.object(forKey: initKey) == nil {
+            UserDefaults.standard.set(true, forKey: initKey)
+            _ = AppSettings.shared.setLaunchAtLogin(true)
+        }
     }
 
     public func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
